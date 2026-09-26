@@ -22,7 +22,7 @@ jobs:
           TESTEMUNHA_CHAVE: ${{ secrets.TESTEMUNHA_CHAVE }}
           HC_PING_URL: ${{ secrets.HC_PING_URL }}
         run: node testemunha.mjs
-      - name: publicar (o push É a publicação: atômico)
+      - name: "publicar (o push é a publicação, atômico)"
         run: |
           git config user.name "testemunha-w2"
           git config user.email "testemunha-w2@users.noreply.github.com"
