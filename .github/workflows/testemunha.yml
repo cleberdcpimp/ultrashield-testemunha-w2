@@ -1,6 +1,8 @@
 name: testemunha-w2
+# O agendamento do GitHub e "melhor esforco" (pode atrasar ou pular). Por isso o job FICA VIVO por ~55 min e assina a cada 5 min por dentro;
+# o cron so precisa reinicia-lo de tempos em tempos. A concorrencia garante um unico escritor por vez.
 on:
-  schedule: [{ cron: '*/5 * * * *' }]
+  schedule: [{ cron: '*/15 * * * *' }]
   workflow_dispatch:
 permissions:
   contents: write
@@ -10,23 +12,26 @@ concurrency:
 jobs:
   cosignar:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 58
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: '22' }
-      - name: conferir a cadeia e assinar
+      - name: "conferir a cadeia e assinar a cada 5 min"
         env:
           API: https://api-verificar.democracia360.com.br
           CHAVE_GRUPO: MCowBQYDK2VwAyEAy+4PREfh5DMOADjSoZGl2XH6tdkpZSfnxo2PuRoH/+4=
           TESTEMUNHA_CHAVE: ${{ secrets.TESTEMUNHA_CHAVE }}
           HC_PING_URL: ${{ secrets.HC_PING_URL }}
-        run: node testemunha.mjs
-      - name: "publicar (o push é a publicação, atômico)"
         run: |
           git config user.name "testemunha-w2"
           git config user.email "testemunha-w2@users.noreply.github.com"
-          git add cosign.json estado.json || true
-          if git diff --cached --quiet; then echo "nada novo"; exit 0; fi
-          git commit -m "cosign $(date -u +%FT%TZ)"
-          git push
+          for i in $(seq 1 11); do
+            node testemunha.mjs || true
+            git add cosign.json estado.json || true
+            if ! git diff --cached --quiet; then
+              git commit -q -m "cosign $(date -u +%FT%TZ)"
+              git push -q || echo "push recusado (nada publicado; tenta de novo no proximo ciclo)"
+            fi
+            [ $i -lt 11 ] && sleep 300
+          done
