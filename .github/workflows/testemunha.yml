@@ -1,0 +1,32 @@
+name: testemunha-w2
+on:
+  schedule: [{ cron: '*/5 * * * *' }]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: testemunha
+  cancel-in-progress: false
+jobs:
+  cosignar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - name: conferir a cadeia e assinar
+        env:
+          API: https://api-verificar.democracia360.com.br
+          CHAVE_GRUPO: MCowBQYDK2VwAyEAy+4PREfh5DMOADjSoZGl2XH6tdkpZSfnxo2PuRoH/+4=
+          TESTEMUNHA_CHAVE: ${{ secrets.TESTEMUNHA_CHAVE }}
+          HC_PING_URL: ${{ secrets.HC_PING_URL }}
+        run: node testemunha.mjs
+      - name: publicar (o push É a publicação: atômico)
+        run: |
+          git config user.name "testemunha-w2"
+          git config user.email "testemunha-w2@users.noreply.github.com"
+          git add cosign.json estado.json || true
+          if git diff --cached --quiet; then echo "nada novo"; exit 0; fi
+          git commit -m "cosign $(date -u +%FT%TZ)"
+          git push
